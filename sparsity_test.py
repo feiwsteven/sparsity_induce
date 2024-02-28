@@ -3,6 +3,7 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 from torch import Tensor
+from torch.nn.modules import Linear
 
 
 class ClipRelu(nn.Module):
@@ -20,6 +21,13 @@ class ClipRelu(nn.Module):
 
         crelu[x > self.tau + self.m] = self.m
         return crelu
+
+
+class DeepNet(nn.Module):
+    def __init__(self, input_size: int, output_size: int, tau: float, m: float) -> None:
+        super(DeepNet, self).__init__()
+        self.layers = nn.Sequential(nn.Linear(input_size), 300)
+        ClipRelu(tau, m)
 
 
 if __name__ == "__main__":
