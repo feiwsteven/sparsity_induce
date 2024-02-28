@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt 
- 
-from torch import Tensor
+import matplotlib.pyplot as plt
 
+from torch import Tensor
 
 
 class ClipRelu(nn.Module):
@@ -14,27 +13,26 @@ class ClipRelu(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         crelu = torch.zeros_like(x)
-        crelu[torch.ge(self.tau, x)] = 0
-        crelu[torch.gt(x, self.tau) and torch.ge(self.tau + self.m, x)] = x -self.tau
+        crelu[self.tau >= x] = 0
+        crelu[(x > self.tau) & (x <= self.tau + self.m)] = (
+            x[(x > self.tau) & (x <= self.tau + self.m)] - self.tau
+        )
 
-        elif x >= self.tau and x < self.tau + self.m:
-            crelu = x - self.tau
-        else:
-            crelu = self.m
+        crelu[x > self.tau + self.m] = self.m
         return crelu
 
-if __name__ == '__main__':
-    
- 
-    # create custom dataset 
-    x = torch.linspace(-5, 5, 100) 
-    k = ClipRelu(1, 2) 
-    y = k(x) 
-    
-    # plot the softplus function graph 
-    plt.plot(x, y) 
-    plt.grid(True) 
-    plt.title('Softplus Function') 
-    plt.xlabel('x') 
-    plt.ylabel('y') 
+
+if __name__ == "__main__":
+
+    # create custom dataset
+    x = torch.linspace(-5, 5, 100)
+    k = ClipRelu(1, 2)
+    y = k(x)
+
+    # plot the softplus function graph
+    plt.plot(x, y)
+    plt.grid(True)
+    plt.title("Softplus Function")
+    plt.xlabel("x")
+    plt.ylabel("y")
     plt.show()
