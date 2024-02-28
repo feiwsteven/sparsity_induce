@@ -13,8 +13,10 @@ class ClipRelu(nn.Module):
         self.m = m
 
     def forward(self, x: Tensor) -> Tensor:
-        if x < self.tau:
-            crelu = 0
+        crelu = torch.zeros_like(x)
+        crelu[torch.ge(self.tau, x)] = 0
+        crelu[torch.gt(x, self.tau) and torch.ge(self.tau + self.m, x)] = x -self.tau
+
         elif x >= self.tau and x < self.tau + self.m:
             crelu = x - self.tau
         else:
