@@ -38,14 +38,14 @@ class DeepNet(nn.Module):
     ) -> None:
         super(DeepNet, self).__init__()
         CReLU = ClipReLu(tau, m)
-        self.layers = nn.Sequential(nn.Linear(input_size, 50), CReLU)
+        self.layers = nn.Sequential(nn.Linear(input_size, middle_layer_size), CReLU)
         # Add 48 hidden layers
         for _ in range(n_middle_layers):
-            self.layers.add_module("linear", nn.Linear(50, 50))
+            self.layers.add_module("linear", nn.Linear(middle_layer_size, middle_layer_size))
             self.layers.add_module("cliprelu", CReLU)
 
         # Last layer (hidden to output)
-        self.layers.add_module("output", nn.Linear(50, output_size))
+        self.layers.add_module("output", nn.Linear(middle_layer_size, output_size))
 
     def forward(self, x: Tensor) -> Tensor:
         # return self.layers(x.view(x.size(0), -1))
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28 * 28, 10, 8, 50, 0.05, 1000)
+    model = DeepNet(28 * 28, 10, 300, 10, 0.05, 1000)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
