@@ -27,7 +27,15 @@ class ClipReLu(nn.Module):
 
 
 class DeepNet(nn.Module):
-    def __init__(self, input_size: int, output_size: int, n_middle_layers: int, tau: float, m: float) -> None:
+    def __init__(
+        self,
+        input_size: int,
+        output_size: int,
+        middle_layer_size: int,
+        n_middle_layers: int,
+        tau: float,
+        m: float,
+    ) -> None:
         super(DeepNet, self).__init__()
         CReLU = ClipReLu(tau, m)
         self.layers = nn.Sequential(nn.Linear(input_size, 50), CReLU)
@@ -40,7 +48,8 @@ class DeepNet(nn.Module):
         self.layers.add_module("output", nn.Linear(50, output_size))
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.layers(x.view(x.size(0), -1))
+        # return self.layers(x.view(x.size(0), -1))
+        return self.layers(x.reshape(x.size(0), -1))
 
 
 if __name__ == "__main__":
@@ -71,7 +80,7 @@ if __name__ == "__main__":
 
     # Check if GPU is available
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
-    print(f'Using device: {device}')
+    print(f"Using device: {device}")
 
     # Load the MNIST dataset
     batch_size = 50
@@ -96,14 +105,14 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28*28, 10, 10, 0.0, 100000)
+    model = DeepNet(28 * 28, 10, 8, 50, 0.05, 1000)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # Train the model
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
-            images, labels = images.to(device), labels.to(device)  # Move the data to the GPU
+            # images, labels = images.to(device), labels.to(device)  # Move the data to the GPU
             outputs = model(images)
             loss = criterion(outputs, labels)
 
@@ -112,7 +121,9 @@ if __name__ == "__main__":
             optimizer.step()
 
             if (i + 1) % 100 == 0:
-                print(f'Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}')
+                print(
+                    f"Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}"
+                )
 
     # Test the model
     model.eval()
@@ -120,10 +131,12 @@ if __name__ == "__main__":
         correct = 0
         total = 0
         for images, labels in test_loader:
-            images, labels = images.to(device), labels.to(device)  # Move the data to the GPU
+            # images, labels = images.to(device), labels.to(device)  # Move the data to the GPU
             outputs = model(images)
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-        print(f'Accuracy of the model on the 10000 test images: {100 * correct / total}%')
+        print(
+            f"Accuracy of the model on the 10000 test images: {100 * correct / total}%"
+        )
