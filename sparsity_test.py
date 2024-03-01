@@ -35,13 +35,19 @@ class DeepNet(nn.Module):
         n_middle_layers: int,
         tau: float,
         m: float,
+        normalization=False
     ) -> None:
         super(DeepNet, self).__init__()
         CReLU = ClipReLu(tau, m)
         self.layers = nn.Sequential(nn.Linear(input_size, middle_layer_size), CReLU)
         # Add 48 hidden layers
         for _ in range(n_middle_layers):
-            self.layers.add_module("linear", nn.Linear(middle_layer_size, middle_layer_size))
+            
+            if not normalization:
+                self.layers.add_module("normalization", nn.LayerNorm(middle_layer_size))
+            self.layers.add_module(
+                "linear", nn.Linear(middle_layer_size, middle_layer_size)
+            )
             self.layers.add_module("cliprelu", CReLU)
 
         # Last layer (hidden to output)
@@ -83,6 +89,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     # Load the MNIST dataset
+    torch.manual_seed(123)
     batch_size = 50
     learning_rate = 1e-4
     num_epochs = 10
@@ -105,7 +112,7 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28 * 28, 10, 300, 10, 0.05, 1000)
+    model = DeepNet(28 * 28, 10, 2000, 10, 0.05, 1000, normalization=True)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
