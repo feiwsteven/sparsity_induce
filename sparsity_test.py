@@ -112,7 +112,7 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28 * 28, 10, 2000, 10, 0.05, 1000, normalization=True)
+    model = DeepNet(28 * 28, 10, 20000, 5, 0.05, 1000, normalization=True)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
