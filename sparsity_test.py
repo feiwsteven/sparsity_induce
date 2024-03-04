@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from torch import Tensor
 from torch.nn.modules import Linear
+from torch.nn import MultiheadAttention
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
@@ -26,6 +27,27 @@ class ClipReLu(nn.Module):
         return crelu
 
 
+class ClipST(nn.Module):
+    def __init__(self, tau: float, m: float) -> None:
+        super(ClipST, self).__init__()
+        self.tau = tau
+        self.m = m
+
+    def forward(self, x: Tensor) -> Tensor:
+        cst = torch.zeros_like(x)
+        cst[(self.tau >= x) & (x >= -self.tau)] = 0
+        cst[(self.tau + self.m >= x) & (x > self.tau)] = (
+            x[(self.tau + self.m >= x) & (x > self.tau)] - self.tau
+        )
+        cst[(-self.tau > x) & (x >= -(self.tau + self.m))] = (
+            x[(-self.tau > x) & (x >= -(self.tau + self.m))] + self.tau
+        )
+        cst[(x > (self.tau + self.m))] = self.m
+        cst[(x < -(self.tau + self.m))] = -self.m
+
+        return cst
+
+
 class DeepNet(nn.Module):
     def __init__(
         self,
@@ -35,27 +57,51 @@ class DeepNet(nn.Module):
         n_middle_layers: int,
         tau: float,
         m: float,
-        normalization=False
+        normalization=False,
+        act=ClipReLu,
     ) -> None:
         super(DeepNet, self).__init__()
-        CReLU = ClipReLu(tau, m)
-        self.layers = nn.Sequential(nn.Linear(input_size, middle_layer_size), CReLU)
+        CReLU = act(tau, m)
+        #self.layers = nn.Sequential(nn.Linear(input_size, middle_layer_size), CReLU)
+
+        #MultiheadAttention(middle_layer_size, num_heads=1)
+        ## Add 48 hidden layers
+        #for _ in range(n_middle_layers):
+
+        #    if not normalization:
+        #        self.layers.add_module("normalization", nn.LayerNorm(middle_layer_size))
+        #    self.layers.add_module(
+        #        "linear", nn.Linear(middle_layer_size, middle_layer_size)
+        #    )
+        #    self.layers.add_module("cliprelu", CReLU)
+
+        ## Last layer (hidden to output)
+        #self.layers.add_module("output", nn.Linear(middle_layer_size, output_size))
+
+        seq_list = nn.Sequential(nn.Linear(input_size, middle_layer_size), CReLU)
+        att_list = MultiheadAttention(middle_layer_size, num_heads=1)
+
+        layers = nn.modules()
         # Add 48 hidden layers
         for _ in range(n_middle_layers):
-            
+
             if not normalization:
-                self.layers.add_module("normalization", nn.LayerNorm(middle_layer_size))
-            self.layers.add_module(
+                layers.add_module("normalization", nn.LayerNorm(middle_layer_size))
+            layers.add_module(
                 "linear", nn.Linear(middle_layer_size, middle_layer_size)
             )
             self.layers.add_module("cliprelu", CReLU)
+        self.modules_list = nn.ModuleList([seq_list, att_list, layers])
 
-        # Last layer (hidden to output)
-        self.layers.add_module("output", nn.Linear(middle_layer_size, output_size))
 
     def forward(self, x: Tensor) -> Tensor:
         # return self.layers(x.view(x.size(0), -1))
-        return self.layers(x.reshape(x.size(0), -1))
+        # return self.layers(x.reshape(x.size(0), -1))
+        for seq, att, layers in self.modules_list:
+            x = seq(x.reshape(x.size(0), -1))
+            att_x = att(x, x, x)
+            x = layers(att_x)
+        return x
 
 
 if __name__ == "__main__":
@@ -64,9 +110,12 @@ if __name__ == "__main__":
     x = torch.linspace(-5, 5, 100)
     k = ClipReLu(1, 2)
     y = k(x)
+    k2 = ClipST(1, 2)
+    y2 = k2(x)
 
     # plot the softplus function graph
     plt.plot(x, y)
+    plt.plot(x, y2)
     plt.grid(True)
     plt.title("Softplus Function")
     plt.xlabel("x")
@@ -112,7 +161,11 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28 * 28, 10, 2000, 10, 0.05, 1000, normalization=True)
+    model = DeepNet(28 * 28, 10, 5000, 5, 0.05, 2, normalization=True, act=ClipReLu)
+
+    #for name, param in model.named_parameters():
+    #    print(f"{name}: {param}")
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -133,6 +186,10 @@ if __name__ == "__main__":
                 )
 
     # Test the model
+    for name, param in model.named_parameters():
+        print(f"{name}: {torch.sum(param==0)}")
+
+
     model.eval()
     with torch.no_grad():
         correct = 0
