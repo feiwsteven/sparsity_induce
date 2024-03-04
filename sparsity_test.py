@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 
 from torch import Tensor
 from torch.nn.modules import Linear
+from torch.nn import MultiheadAttention
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
@@ -35,27 +36,42 @@ class DeepNet(nn.Module):
         n_middle_layers: int,
         tau: float,
         m: float,
-        normalization=False
+        self_attention=False,
+        normalization=False,
     ) -> None:
         super(DeepNet, self).__init__()
         CReLU = ClipReLu(tau, m)
-        self.layers = nn.Sequential(nn.Linear(input_size, middle_layer_size), CReLU)
+        self.input_layers = nn.Sequential(
+            nn.Linear(input_size, middle_layer_size), CReLU
+        )
+        self.self_attention=self_attention
+
+        self.attn_layers = nn.MultiheadAttention(input_size, 2)
+        self.layers = nn.ModuleList()
         # Add 48 hidden layers
         for _ in range(n_middle_layers):
-            
             if not normalization:
-                self.layers.add_module("normalization", nn.LayerNorm(middle_layer_size))
-            self.layers.add_module(
-                "linear", nn.Linear(middle_layer_size, middle_layer_size)
-            )
-            self.layers.add_module("cliprelu", CReLU)
+                self.layers.append(nn.LayerNorm(middle_layer_size))
+            self.layers.append(nn.Linear(middle_layer_size, middle_layer_size))
+            self.layers.append(CReLU)
 
         # Last layer (hidden to output)
-        self.layers.add_module("output", nn.Linear(middle_layer_size, output_size))
+        self.layers.append(nn.Linear(middle_layer_size, output_size))
 
     def forward(self, x: Tensor) -> Tensor:
         # return self.layers(x.view(x.size(0), -1))
-        return self.layers(x.reshape(x.size(0), -1))
+        # return self.layers(x.reshape(x.size(0), -1))
+
+        temp = x.reshape(x.size(0), -1)
+        if self.self_attention:
+            x, _ = self.attn_layers(temp, temp, temp)
+            x = self.input_layers(x)
+        else:
+            x = self.input_layers(temp)
+        for layer in self.layers:
+            x = layer(x)
+
+        return x
 
 
 if __name__ == "__main__":
@@ -112,7 +128,7 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28 * 28, 10, 2000, 10, 0.05, 1000, normalization=True)
+    model = DeepNet(28 * 28, 10, 5000, 2, 0.00, 1000, self_attention=False, normalization=False)
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
