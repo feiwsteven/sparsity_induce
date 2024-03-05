@@ -44,7 +44,7 @@ class DeepNet(nn.Module):
         self.input_layers = nn.Sequential(
             nn.Linear(input_size, middle_layer_size), CReLU
         )
-        self.self_attention=self_attention
+        self.self_attention = self_attention
 
         self.attn_layers = nn.MultiheadAttention(input_size, 2)
         self.layers = nn.ModuleList()
@@ -128,7 +128,9 @@ if __name__ == "__main__":
     )
 
     # Initialize the model, loss function, and optimizer
-    model = DeepNet(28 * 28, 10, 5000, 2, 0.00, 1000, self_attention=False, normalization=False)
+    model = DeepNet(
+        28 * 28, 10, 5000, 2, 0.00, 1000, self_attention=False, normalization=False
+    )
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
