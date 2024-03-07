@@ -37,8 +37,9 @@ class ResNet(nn.Module):
         residual_net=False,
     ) -> None:
         super(ResNet, self).__init__()
-        CReLU = ClipReLu(tau, m)
-        self.layers = nn.Sequential(nn.Linear(input_size, output_size), CReLU)
+        Crelu = ClipReLu(tau, m)
+        self.layers = nn.Sequential(nn.Linear(input_size, output_size), Crelu)
+        self.x_layer = nn.Linear(input_size, output_size, bias=False)
         self.residual_net = residual_net
 
     def forward(self, x: Tensor):
@@ -59,25 +60,26 @@ class DeepNet(nn.Module):
         m: float,
         self_attention=False,
         normalization=False,
+        residual_net=False,
     ) -> None:
         super(DeepNet, self).__init__()
-        CReLU = ClipReLu(tau, m)
+        crelu = ClipReLu(tau, m)
         self.input_layers = nn.Sequential(
-            nn.Linear(input_size, middle_layer_size), CReLU
+            nn.Linear(input_size, middle_layer_size), crelu
         )
         self.self_attention = self_attention
-
+        self.residual_net = residual_net
         self.attn_layers = nn.MultiheadAttention(input_size, 2)
         self.layers = nn.ModuleList()
         resnet_layer = ResNet(
-            middle_layer_size, middle_layer_size, tau, m, residual_net=True
+            middle_layer_size, middle_layer_size, tau, m, residual_net=residual_net
         )
         # Add 48 hidden layers
         for _ in range(n_middle_layers):
             if normalization:
                 self.layers.append(nn.LayerNorm(middle_layer_size))
             self.layers.append(resnet_layer)
-            self.layers.append(CReLU)
+            self.layers.append(crelu)
 
         # Last layer (hidden to output)
         self.layers.append(nn.Linear(middle_layer_size, output_size))
@@ -153,7 +155,15 @@ if __name__ == "__main__":
 
     # Initialize the model, loss function, and optimizer
     model = DeepNet(
-        28 * 28, 10, 16, 100, 0.05, 10, self_attention=False, normalization=False
+        28 * 28,
+        10,
+        16 * 25 * 8 *2,
+        3,
+        0.05,
+        10,
+        self_attention=False,
+        normalization=False,
+        residual_net=True,
     )
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
