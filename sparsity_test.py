@@ -26,6 +26,17 @@ class ClipReLu(nn.Module):
         crelu[x > self.tau + self.m] = self.m
         return crelu
 
+class ResNet(nn.Module):
+    def __init__(
+        self, 
+        input_size: int,
+        output_size: int) -> None:
+        super(ResNet, self).__init__()
+        self.layers = nn.Linear(input_size, output_size)
+
+    def forward(x: Tensor):
+        return self.layers(x) + x
+
 
 class DeepNet(nn.Module):
     def __init__(
