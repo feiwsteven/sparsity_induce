@@ -26,16 +26,26 @@ class ClipReLu(nn.Module):
         crelu[x > self.tau + self.m] = self.m
         return crelu
 
+
 class ResNet(nn.Module):
     def __init__(
-        self, 
+        self,
         input_size: int,
-        output_size: int) -> None:
+        output_size: int,
+        tau: float,
+        m: float,
+        residual_net=False,
+    ) -> None:
         super(ResNet, self).__init__()
-        self.layers = nn.Linear(input_size, output_size)
+        CReLU = ClipReLu(tau, m)
+        self.layers = nn.Sequential(nn.Linear(input_size, output_size), CReLU)
+        self.residual_net = residual_net
 
-    def forward(x: Tensor):
-        return self.layers(x) + x
+    def forward(self, x: Tensor):
+        if self.residual_net:
+            return self.layers(x) + x
+        else:
+            return self.layers(x)
 
 
 class DeepNet(nn.Module):
@@ -59,11 +69,14 @@ class DeepNet(nn.Module):
 
         self.attn_layers = nn.MultiheadAttention(input_size, 2)
         self.layers = nn.ModuleList()
+        resnet_layer = ResNet(
+            middle_layer_size, middle_layer_size, tau, m, residual_net=True
+        )
         # Add 48 hidden layers
         for _ in range(n_middle_layers):
-            if not normalization:
+            if normalization:
                 self.layers.append(nn.LayerNorm(middle_layer_size))
-            self.layers.append(nn.Linear(middle_layer_size, middle_layer_size))
+            self.layers.append(resnet_layer)
             self.layers.append(CReLU)
 
         # Last layer (hidden to output)
@@ -140,7 +153,7 @@ if __name__ == "__main__":
 
     # Initialize the model, loss function, and optimizer
     model = DeepNet(
-        28 * 28, 10, 5000, 2, 0.00, 1000, self_attention=False, normalization=False
+        28 * 28, 10, 16, 100, 0.05, 10, self_attention=False, normalization=False
     )
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
