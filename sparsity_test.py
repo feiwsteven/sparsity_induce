@@ -2,17 +2,13 @@ import torch
 import torch.nn as nn
 import matplotlib.pyplot as plt
 
-from torch import Tensor
-from torch.nn.modules import Linear
-from torch.nn import MultiheadAttention
-from src.network import ClipReLu, ResNet, DeepNet
+from src.network import ClipReLu, DeepNet
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
 
 
 if __name__ == "__main__":
-
     # create custom dataset
     x = torch.linspace(-5, 5, 100)
     k = ClipReLu(1, 2)
@@ -42,7 +38,7 @@ if __name__ == "__main__":
     print(f"Using device: {device}")
 
     # Load the MNIST dataset
-    torch.manual_seed(123)
+    torch.manual_seed(1234)
     batch_size = 50
     learning_rate = 1e-4
     num_epochs = 10
@@ -68,13 +64,13 @@ if __name__ == "__main__":
     model = DeepNet(
         28 * 28,
         10,
-        16 * 25 * 8 * 2,
+        16 * 25 * 8,
         2,
         0.05,
-        10,
-        self_attention=False,
+        1,
+        self_attention=True,
         normalization=False,
-        residual_net=True,
+        residual_net=False,
     )
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)

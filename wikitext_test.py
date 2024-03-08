@@ -11,18 +11,7 @@ if __name__ == '__main__':
     test_dataset = dataset['test']
     validation_dataset = dataset['validation']
 
-    # Tokenize the dataset (optional)
-    tokenizer = get_tokenizer('basic_english')
-
-
-    # Tokenize the dataset (optional)
-    tokenizer = get_tokenizer('basic_english')
-    train_tokenized = [tokenizer(line) for line in train_dataset]
-    valid_tokenized = [tokenizer(line) for line in valid_dataset]
-    test_tokenized = [tokenizer(line) for line in test_dataset]
-
-
     # Print some sample data
-    print("Sample train data:", train_tokenized[:5])
-    print("Sample valid data:", valid_tokenized[:5])
-    print("Sample test data:", test_tokenized[:5]) 
+    print("Sample train data:", train_dataset[:5])
+    print("Sample valid data:", validation_dataset[:5])
+    print("Sample test data:", test_dataset[:5]) 

@@ -3,6 +3,27 @@ import torch.nn as nn
 
 from torch import Tensor
 
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def attention(p_mat, q_mat, z_mat, activation=None):
+    B = z_mat.shape[0]
+    N = z_mat.shape[1] - 1
+    d = z_mat.shape[2] - 1
+    p_full = torch.cat([p_mat, torch.zeros(1, d).to(device)], dim=0)
+    p_full = torch.cat([p_full, torch.zeros(d + 1, 1).to(device)], dim=1)
+    p_full[d, d] = 1
+    q_full = torch.cat([q_mat, torch.zeros(1, d).to(device)], dim=0)
+    q_full = torch.cat([q_full, torch.zeros(d + 1, 1).to(device)], dim=1)
+    A = torch.eye(N + 1).to(device)
+    A[N, N] = 0
+    attn = torch.einsum("BNi, ij, BMj -> BNM", (z_mat, q_full, z_mat))
+    if activation is not None:
+        attn = activation(attn)
+    key = torch.einsum("ij, BNj -> BNi", (p_full, z_mat))
+    output = torch.einsum("BNM,ML, BLi -> BNi", (attn, A, key))
+    return output / N
+
 
 class ClipReLu(nn.Module):
     def __init__(self, tau: float, m: float) -> None:
@@ -43,6 +64,21 @@ class ResNet(nn.Module):
             return self.layers(x)
 
 
+class LinearTransformer(nn.Module):
+    def __init__(self, input_size: int) -> None:
+        super(LinearTransformer, self).__init__()
+        self.q_mat = nn.Parameter(torch.randn(input_size, input_size))
+        self.p_mat = nn.Parameter(torch.randn(input_size, input_size))
+
+    def forward(self, x: Tensor):
+        n = x.shape[0]
+        # attn = n by n
+        attn = torch.matmul(torch.matmul(x, self.q_mat), torch.transpose(x, 0, 1))
+        # attn = n by n
+        attn = torch.matmul(torch.matmul(attn, x), self.p_mat) / n  + x 
+        return attn
+
+
 class DeepNet(nn.Module):
     def __init__(
         self,
@@ -64,6 +100,7 @@ class DeepNet(nn.Module):
         self.self_attention = self_attention
         self.residual_net = residual_net
         self.attn_layers = nn.MultiheadAttention(input_size, 2)
+        #self.attn_layers = LinearTransformer(input_size)
         self.layers = nn.ModuleList()
         resnet_layer = ResNet(
             middle_layer_size, middle_layer_size, tau, m, residual_net=residual_net
@@ -85,6 +122,7 @@ class DeepNet(nn.Module):
         temp = x.reshape(x.size(0), -1)
         if self.self_attention:
             x, _ = self.attn_layers(temp, temp, temp)
+            #x = self.attn_layers(temp)
             x = self.input_layers(x)
         else:
             x = self.input_layers(temp)
