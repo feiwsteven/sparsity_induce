@@ -3,7 +3,9 @@ import torch.nn as nn
 import matplotlib.pyplot as plt
 
 from torch import Tensor
+
 device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+
 
 def attention(p_mat, q_mat, z_mat, activation=None):
     B = z_mat.shape[0]
@@ -71,10 +73,12 @@ class LinearTransformer(nn.Module):
     def forward(self, x: Tensor):
         n = x.shape[0]
         # attn = n by n
-        attn = torch.matmul(torch.matmul(x/torch.norm(x, p=2, dim=1, keepdim=True), self.q_mat), 
-                            torch.transpose(x/torch.norm(x, p=2, dim=1, keepdim=True), 0, 1))
-        # attn = n by n
-        attn = torch.matmul(torch.matmul(attn, x), self.p_mat) / n   + x 
+        x_norm = torch.norm(x, p=2, dim=1, keepdim=True)
+        attn = torch.matmul(
+            torch.matmul(x / x_norm, self.q_mat), torch.transpose(x / x_norm, 0, 1)
+        )
+        # attn is a n by n matrix
+        attn = torch.matmul(torch.matmul(attn, x), self.p_mat) / n + x
         return attn
 
 
@@ -94,12 +98,12 @@ class DeepNet(nn.Module):
         super(DeepNet, self).__init__()
         crelu = ClipReLu(tau, m)
         self.input_layers = nn.Sequential(
-            nn.Linear(input_size, middle_layer_size), crelu 
+            nn.Linear(input_size, middle_layer_size), crelu
         )
         self.self_attention = self_attention
         self.residual_net = residual_net
-        #self.attn_layers = nn.MultiheadAttention(input_size, 2)
-        self.attn_layers = LinearTransformer(input_size)
+        # self.attn_layers = nn.MultiheadAttention(input_size, 2)
+        self.attn_layers = LinearTransformer(middle_layer_size)
         self.layers = nn.ModuleList()
         resnet_layer = ResNet(
             middle_layer_size, middle_layer_size, tau, m, residual_net=residual_net
@@ -109,7 +113,7 @@ class DeepNet(nn.Module):
             if normalization:
                 self.layers.append(nn.LayerNorm(middle_layer_size))
             self.layers.append(resnet_layer)
-            # resnet_layer alreadys has a crelu activation. 
+            # resnet_layer alreadys has a crelu activation.
 
         # Last layer (hidden to output)
         self.layers.append(nn.Linear(middle_layer_size, output_size))
@@ -120,7 +124,7 @@ class DeepNet(nn.Module):
 
         temp = x.reshape(x.size(0), -1)
         if self.self_attention:
-            #x, _ = self.attn_layers(x, x, x)
+            # x, _ = self.attn_layers(x, x, x)
             x = self.attn_layers(temp)
             x = self.input_layers(x)
 

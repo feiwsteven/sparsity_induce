@@ -32,5 +32,3 @@ if __name__ == "__main__":
 
     torch.save(train_dataset, os.path.join("./data/MNIST", "train.pt"))
     torch.save(test_dataset, os.path.join("./data/MNIST", "test.pt"))
-
-I

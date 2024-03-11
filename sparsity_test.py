@@ -52,14 +52,13 @@ if __name__ == "__main__":
     test_dataset = torch.load("./data/MNIST/test.pt")
     test_loader = torch.utils.data.DataLoader(
         test_dataset, batch_size=batch_size, shuffle=False, num_workers=5
- 
     )
 
     # Initialize the model, loss function, and optimizer
     model = DeepNet(
         28 * 28,
         10,
-        16 * 25 * 8 * 2,
+        16 * 25 * 8,
         2,
         0.05,
         10,
