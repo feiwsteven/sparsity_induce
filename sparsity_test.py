@@ -62,7 +62,7 @@ if __name__ == "__main__":
         2,
         0.05,
         10,
-        self_attention=True,
+        self_attention=False,
         normalization=False,
         residual_net=False,
     )

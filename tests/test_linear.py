@@ -1,6 +1,7 @@
 import unittest
 import torch
 from src.network import LinearTransformer
+from torchsummary import summary
 
 
 class TestMyLinearModule(unittest.TestCase):
@@ -18,6 +19,7 @@ class TestMyLinearModule(unittest.TestCase):
         # Perform the forward pass
         y = model(x)
 
+        summary(y, input_size=(5))
         # Check the output shape
         self.assertEqual(y.shape, (batch_size, output_size))
 

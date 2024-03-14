@@ -65,11 +65,15 @@ class ResNet(nn.Module):
 
 
 class LinearTransformer(nn.Module):
-    def __init__(self, input_size: int) -> None:
+    def __init__(self, input_size: int, n_heads=1) -> None:
         super(LinearTransformer, self).__init__()
+        self.n_heads = n_heads
         self.q_mat = nn.Parameter(torch.randn(input_size, input_size))
         self.p_mat = nn.Parameter(torch.randn(input_size, input_size))
-
+        nn.init.xavier_uniform_(self.q_mat)
+        nn.init.xavier_uniform_(self.p_mat)
+ 
+ 
     def forward(self, x: Tensor):
         n = x.shape[0]
         # attn = n by n
@@ -81,6 +85,51 @@ class LinearTransformer(nn.Module):
         attn = torch.matmul(torch.matmul(attn, x), self.p_mat) / n + x
         return attn
 
+class SelfLinearAttention(nn.Module):
+    def __init__(self, embed_size, heads):
+        super(SelfLinearAttention, self).__init__()
+        self.embed_size = embed_size
+        self.heads = heads
+        self.head_dim = embed_size // heads
+
+        assert (
+            self.head_dim * heads == embed_size
+        ), "Embedding size needs to be divisible by heads"
+
+        self.values_weight = nn.Parameter(torch.Tensor(self.head_dim, self.head_dim))
+        self.keys_weight = nn.Parameter(torch.Tensor(self.head_dim, self.head_dim))
+        self.queries_weight = nn.Parameter(torch.Tensor(self.head_dim, self.head_dim))
+        self.fc_weight = nn.Parameter(torch.Tensor(embed_size, heads * self.head_dim))
+
+        nn.init.xavier_uniform_(self.values_weight)
+        nn.init.xavier_uniform_(self.keys_weight)
+        nn.init.xavier_uniform_(self.queries_weight)
+        nn.init.xavier_uniform_(self.fc_weight)
+
+    def forward(self, values, keys, query, mask):
+        N = query.shape[0]
+        value_len, key_len, query_len = values.shape[1], keys.shape[1], query.shape[1]
+
+        values = values.reshape(N, value_len, self.heads, self.head_dim)
+        keys = keys.reshape(N, key_len, self.heads, self.head_dim)
+        query = query.reshape(N, query_len, self.heads, self.head_dim)
+
+        values = torch.einsum("nlhd,df->nlhf", [values, self.values_weight])
+        keys = torch.einsum("nlhd,df->nlhf", [keys, self.keys_weight])
+        queries = torch.einsum("nlhd,df->nlhf", [query, self.queries_weight])
+
+        energy = torch.einsum("nqhd,nkhd->nhqk", [queries, keys])
+        if mask is not None:
+            energy = energy.masked_fill(mask == 0, float("-1e20"))
+
+        attention = torch.softmax(energy / (self.embed_size ** (1 / 2)), dim=3)
+
+        out = torch.einsum("nhql,nlhd->nqhd", [attention, values]).reshape(
+            N, query_len, self.heads * self.head_dim
+        )
+
+        out = torch.einsum("nqd,qd->nqf", [out, self.fc_weight])
+        return out
 
 class DeepNet(nn.Module):
     def __init__(
@@ -103,7 +152,7 @@ class DeepNet(nn.Module):
         self.self_attention = self_attention
         self.residual_net = residual_net
         # self.attn_layers = nn.MultiheadAttention(input_size, 2)
-        self.attn_layers = LinearTransformer(middle_layer_size)
+        self.attn_layers = LinearTransformer(input_size)
         self.layers = nn.ModuleList()
         resnet_layer = ResNet(
             middle_layer_size, middle_layer_size, tau, m, residual_net=residual_net
