@@ -77,7 +77,10 @@ class LinearTransformer(nn.Module):
     def forward(self, x: Tensor):
         n = x.shape[0]
         # attn = n by n
-        x_norm = torch.norm(x, p=2, dim=1, keepdim=True)
+        x_norm = torch.norm(x, p=2, dim=2, keepdim=True)
+        attn2 = torch.einsum("nqd,dj->nqj", [x/x_norm, self.q_mat])
+        attn2 = torch.einsum("nqj,nfj->nqf", [attn2, x/x_norm])
+
         attn = torch.matmul(
             torch.matmul(x / x_norm, self.q_mat), torch.transpose(x / x_norm, 0, 1)
         )
@@ -128,7 +131,7 @@ class SelfLinearAttention(nn.Module):
             N, query_len, self.heads * self.head_dim
         )
 
-        out = torch.einsum("nqd,qd->nqf", [out, self.fc_weight])
+        out = torch.einsum("nqd,df->nqf", [out, self.fc_weight])
         return out
 
 class DeepNet(nn.Module):
@@ -152,7 +155,8 @@ class DeepNet(nn.Module):
         self.self_attention = self_attention
         self.residual_net = residual_net
         # self.attn_layers = nn.MultiheadAttention(input_size, 2)
-        self.attn_layers = LinearTransformer(input_size)
+        self.attn_linear_layers = LinearTransformer(input_size)
+        self.attn_heads_layers = SelfLinearAttention(input_size, heads=2)
         self.layers = nn.ModuleList()
         resnet_layer = ResNet(
             middle_layer_size, middle_layer_size, tau, m, residual_net=residual_net
@@ -174,7 +178,9 @@ class DeepNet(nn.Module):
         temp = x.reshape(x.size(0), -1)
         if self.self_attention:
             # x, _ = self.attn_layers(x, x, x)
-            x = self.attn_layers(temp)
+            x = self.attn_linear_layers(x)
+            x = self.attn_heads_layers(x, x, x, mask=None)
+            # x = self.attn_layers(temp)
             x = self.input_layers(x)
 
         else:

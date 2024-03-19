@@ -62,7 +62,7 @@ if __name__ == "__main__":
         2,
         0.05,
         10,
-        self_attention=False,
+        self_attention=True,
         normalization=False,
         residual_net=False,
     )
@@ -74,10 +74,10 @@ if __name__ == "__main__":
     # Train the model
     for epoch in range(num_epochs):
         for i, (images, labels) in enumerate(train_loader):
-            images = images.view(images.size(0), -1)
+            # images = images.view(images.size(0), -1)
             labels = labels
             outputs = model(images)
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs.view(outputs.size(0), -1), labels)
 
             optimizer.zero_grad()
             loss.backward()
