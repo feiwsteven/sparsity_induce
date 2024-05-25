@@ -79,7 +79,7 @@ class LinearTransformer(nn.Module):
         # attn = n by n
         x_norm = torch.norm(x, p=2, dim=2, keepdim=True)
         attn2 = torch.einsum("nqd,dj->nqj", [x/x_norm, self.q_mat])
-        attn2 = torch.einsum("nqj,nfj->nqf", [attn2, x/x_norm])
+        attn2 = torch.einsum("nqj,mqj->nm", [attn2, x/x_norm])
 
         attn = torch.matmul(
             torch.matmul(x / x_norm, self.q_mat), torch.transpose(x / x_norm, 0, 1)
